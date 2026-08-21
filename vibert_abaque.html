@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root{--bg:#0f1720;--panel:#16212c;--line:#e8e2d0;--accent:#3fb6a8;--accent2:#e0a458;--text:#e8e8e8;--muted:#9aa7b0;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:transparent;color:var(--text);font-family:'Georgia','Times New Roman',serif;padding:0;}
+  .layout{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;}
+  .chart-box{flex:1 1 320px;min-width:0;background:var(--panel);border:1px solid #2a3a45;border-radius:10px;padding:10px;overflow-x:auto;}
+  .panel{flex:1 1 220px;min-width:0;background:var(--panel);border:1px solid #2a3a45;border-radius:10px;padding:14px 16px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;}
+  .panel h3{margin-top:0;font-size:clamp(13px,3vw,15px);color:var(--accent);border-bottom:1px solid #2a3a45;padding-bottom:8px;margin-bottom:4px;}
+  label{display:block;font-size:clamp(11px,2.5vw,12px);color:var(--muted);margin-top:12px;margin-bottom:4px;}
+  input[type=number]{width:100%;padding:7px 8px;background:#0f1720;border:1px solid #33454f;border-radius:6px;color:var(--text);font-size:clamp(12px,3vw,14px);}
+  .exp{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;}
+  .exp input[type=number]:first-child{width:60px;flex:none;}
+  select{background:#0f1720;border:1px solid #33454f;color:var(--text);border-radius:6px;padding:7px;font-size:clamp(12px,3vw,13px);}
+  .results{margin-top:14px;padding-top:10px;border-top:1px solid #2a3a45;}
+  .res-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:clamp(12px,3vw,14px);}
+  .res-row .val{font-size:clamp(16px,4vw,20px);font-weight:700;}
+  .zmin .val{color:var(--accent);} .zmax .val{color:var(--accent2);}
+  .hint{font-size:clamp(10px,2.5vw,11px);color:var(--muted);margin-top:14px;line-height:1.6;}
+  /* SVG : largeur minimale pour lisibilité, scroll horizontal sur mobile */
+  .svg-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  svg{min-width:480px;width:100%;height:auto;display:block;}
+  .scale-label{font-size:15px;font-weight:bold;fill:var(--line);}
+  .tick-label{font-size:11px;fill:var(--muted);font-family:system-ui,sans-serif;}
+  .decade-label{font-size:11px;fill:var(--accent2);font-family:system-ui,sans-serif;}
+  .axis-line{stroke:var(--line);stroke-width:1.5;}
+  .tick{stroke:var(--muted);stroke-width:1;}
+  .plate{text-anchor:middle;font-size:11px;letter-spacing:2px;fill:var(--muted);font-family:system-ui,sans-serif;}
+  .draghandle{cursor:ns-resize;touch-action:none;}
+  .connect-line{stroke:#ff5a5f;stroke-width:1.6;stroke-dasharray:4 3;}
+  .badge{display:inline-block;background:#ff5a5f22;border:1px solid #ff5a5f55;border-radius:4px;padding:2px 8px;font-size:clamp(10px,2.5vw,11px);color:#ff5a5f;margin-top:10px;}
+  /* Empilement complet sur très petit écran */
+  @media(max-width:480px){
+    .layout{flex-direction:column;gap:10px;}
+    .chart-box,.panel{flex:1 1 100%;width:100%;}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="chart-box">
+    <div class="svg-wrap">
+      <svg id="chart" viewBox="0 0 900 950" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Valeurs connues</h3>
+    <label>h0 / Z0</label>
+    <div class="exp">
+      <input type="number" id="hMant" min="1" max="9.99" step="0.1" value="8">
+      <span>x 10^</span>
+      <select id="hExp">
+        <option value="-2" selected>-2</option>
+        <option value="-3">-3</option>
+        <option value="-4">-4</option>
+      </select>
+    </div>
+    <label>U0 / (L*S)</label>
+    <div class="exp">
+      <input type="number" id="uMant" min="1" max="9.99" step="0.1" value="1">
+      <span>x 10^</span>
+      <select id="uExp">
+        <option value="-1" selected>-1</option>
+        <option value="-2">-2</option>
+        <option value="-3">-3</option>
+      </select>
+    </div>
+    <div class="results">
+      <div class="res-row zmin"><span>Zmin / Z0</span><span class="val" id="zminVal">-</span></div>
+      <div class="res-row zmax"><span>Zmax / Z0</span><span class="val" id="zmaxVal">-</span></div>
+    </div>
+    <span class="badge">Ligne rouge = intersection</span>
+    <p class="hint">Glissez les points sur le graphique :<br>Jaune = h0/Z0 | Vert = U0/(L*S)<br><br>Intersection avec l'echelle Z/Z0 donne Zmin/Z0 et Zmax/Z0.<br><br>Digitalisation approximative - verifier avec l'abaque original (Planche XXVII Vibert / Evangelisti).</p>
+  </div>
+</div>
+<script>
+const svgNS="http://www.w3.org/2000/svg";
+const svg=document.getElementById('chart');
+const yTop=130,yBot=850;
+const A={x:150,min:5e-5,max:9e-2,decades:[-2,-3,-4,-5]};
+const B={x:400,min:5e-4,max:9e-1,decades:[-1,-2,-3,-4]};
+const C_x=680;
+const zminTicks=[0.95,0.90,0.85,0.80,0.75,0.70,0.65,0.60];
+const zmaxTicks=[1.05,1.10,1.15,1.20,1.30,1.40,1.50,1.60,1.70,1.80,1.90,2.00];
+function logY(scale,value){const t=(Math.log10(scale.max)-Math.log10(value))/(Math.log10(scale.max)-Math.log10(scale.min));return yTop+t*(yBot-yTop);}
+function logVal(scale,y){const t=(y-yTop)/(yBot-yTop);const logv=Math.log10(scale.max)-t*(Math.log10(scale.max)-Math.log10(scale.min));return Math.pow(10,logv);}
+function tickY(arr,idx){return yTop+idx/(arr.length-1)*(yBot-yTop);}
+function valFromY(arr,y){let t=(y-yTop)/(yBot-yTop);t=Math.max(0,Math.min(1,t));const pos=t*(arr.length-1);const i0=Math.floor(pos),i1=Math.min(arr.length-1,i0+1);return arr[i0]+(arr[i1]-arr[i0])*(pos-i0);}
+function el(tag,attrs,parent){const e=document.createElementNS(svgNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function drawLogScale(scale,title){
+  el('line',{class:'axis-line',x1:scale.x,y1:yTop-10,x2:scale.x,y2:yBot+10},svg);
+  el('text',{class:'scale-label',x:scale.x,y:yTop-40,'text-anchor':'middle'},svg).textContent=title;
+  scale.decades.forEach(dec=>{
+    for(let n=9;n>=5;n--){
+      const v=n*Math.pow(10,dec);
+      if(v<scale.min||v>scale.max)continue;
+      const y=logY(scale,v);
+      const len=(n===9)?14:8;
+      el('line',{class:'tick',x1:scale.x-len,y1:y,x2:scale.x+len,y2:y},svg);
+      if(n===9||n===5)el('text',{class:'tick-label',x:scale.x+18,y:y+4},svg).textContent=n;
+    }
+    const yLab=logY(scale,9*Math.pow(10,dec));
+    el('text',{class:'decade-label',x:scale.x-60,y:yLab-6},svg).textContent='x10^'+dec;
+  });
+}
+function drawZScale(){
+  el('line',{class:'axis-line',x1:C_x,y1:yTop-10,x2:C_x,y2:yBot+10},svg);
+  el('text',{class:'scale-label',x:C_x,y:yTop-58,'text-anchor':'middle'},svg).textContent='I ( Z / Z0 )';
+  el('text',{class:'tick-label',x:C_x-90,y:yTop-30},svg).textContent='Zmin/Z0 ->';
+  el('text',{class:'tick-label',x:C_x+30,y:yTop-30},svg).textContent='<- Zmax/Z0';
+  zminTicks.forEach((v,i)=>{const y=tickY(zminTicks,i);el('line',{class:'tick',x1:C_x-14,y1:y,x2:C_x,y2:y},svg);el('text',{class:'tick-label','text-anchor':'end',x:C_x-20,y:y+4},svg).textContent=v.toFixed(2);});
+  zmaxTicks.forEach((v,i)=>{const y=tickY(zmaxTicks,i);el('line',{class:'tick',x1:C_x,y1:y,x2:C_x+14,y2:y},svg);el('text',{class:'tick-label',x:C_x+20,y:y+4},svg).textContent=v.toFixed(2);});
+}
+drawLogScale(A,'h0 / Z0');drawLogScale(B,'U0 / (L*S)');drawZScale();
+el('text',{class:'plate',x:450,y:910},svg).textContent='PLANCHE XXVII';
+const ptA=el('circle',{r:8,fill:'#f4d35e',stroke:'#0f1720','stroke-width':2,class:'draghandle',cx:A.x},svg);
+const ptB=el('circle',{r:8,fill:'#3fb6a8',stroke:'#0f1720','stroke-width':2,class:'draghandle',cx:B.x},svg);
+const connLine=el('line',{class:'connect-line'},svg);
+svg.insertBefore(connLine,ptA);svg.appendChild(ptA);svg.appendChild(ptB);
+const markC=el('circle',{r:5,fill:'#ff5a5f'},svg);
+const hMant=document.getElementById('hMant'),hExp=document.getElementById('hExp');
+const uMant=document.getElementById('uMant'),uExp=document.getElementById('uExp');
+const zminOut=document.getElementById('zminVal'),zmaxOut=document.getElementById('zmaxVal');
+function currentHVal(){return parseFloat(hMant.value)*Math.pow(10,parseInt(hExp.value));}
+function currentUVal(){return parseFloat(uMant.value)*Math.pow(10,parseInt(uExp.value));}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+function setFromValues(){const hv=clamp(currentHVal(),A.min,A.max);const uv=clamp(currentUVal(),B.min,B.max);ptA.setAttribute('cy',logY(A,hv));ptB.setAttribute('cy',logY(B,uv));update();}
+function update(){
+  const yA=parseFloat(ptA.getAttribute('cy'));
+  const yB=parseFloat(ptB.getAttribute('cy'));
+  const yC=yA+(yB-yA)*(C_x-A.x)/(B.x-A.x);
+  const yClamped=clamp(yC,yTop,yBot);
+  connLine.setAttribute('x1',A.x);connLine.setAttribute('y1',yA);connLine.setAttribute('x2',C_x);connLine.setAttribute('y2',yClamped);
+  markC.setAttribute('cx',C_x);markC.setAttribute('cy',yClamped);
+  zminOut.textContent=valFromY(zminTicks,yClamped).toFixed(3);
+  zmaxOut.textContent=valFromY(zmaxTicks,yClamped).toFixed(3);
+}
+let dragging=null;
+function pointerY(evt){const rect=svg.getBoundingClientRect();const scaleY=950/rect.height;const clientY=evt.touches?evt.touches[0].clientY:evt.clientY;return(clientY-rect.top)*scaleY;}
+function startDrag(which){return(e)=>{dragging=which;e.preventDefault();};}
+ptA.addEventListener('mousedown',startDrag('A'));ptB.addEventListener('mousedown',startDrag('B'));
+ptA.addEventListener('touchstart',startDrag('A'));ptB.addEventListener('touchstart',startDrag('B'));
+window.addEventListener('mousemove',onMove);window.addEventListener('touchmove',onMove,{passive:false});
+window.addEventListener('mouseup',()=>dragging=null);window.addEventListener('touchend',()=>dragging=null);
+function onMove(e){
+  if(!dragging)return;e.preventDefault();
+  let y=clamp(pointerY(e),yTop,yBot);
+  if(dragging==='A'){ptA.setAttribute('cy',y);const v=logVal(A,y);const exp=Math.floor(Math.log10(v));hMant.value=(v/Math.pow(10,exp)).toFixed(1);hExp.value=String(exp);}
+  else{ptB.setAttribute('cy',y);const v=logVal(B,y);const exp=Math.floor(Math.log10(v));uMant.value=(v/Math.pow(10,exp)).toFixed(1);uExp.value=String(exp);}
+  update();
+}
+[hMant,hExp,uMant,uExp].forEach(inp=>inp.addEventListener('input',setFromValues));
+setFromValues();
+</script>
+</body>
+</html>
