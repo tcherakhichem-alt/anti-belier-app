@@ -1,5 +1,6 @@
 import math
 import streamlit as st
+import streamlit.components.v1 as components
 
 def resolver_abaque_u0_ls(h0_Z0, Zmax_Z0):
     log_h = math.log10(h0_Z0)
@@ -13,7 +14,7 @@ def dimensionner_anti_belier():
     st.title("⚡ PROGRAMME DE DIMENSIONNEMENT DU RÉSERVOIR ANTI-BÉLIER")
     st.write("---")
     
-    # 1. Inputs de l'utilisateur via l'interface Streamlit
+    # 1. Inputs de l'utilisateur
     st.subheader("1. Paramètres d'entrée")
     
     col1, col2 = st.columns(2)
@@ -82,6 +83,17 @@ def dimensionner_anti_belier():
         st.success(f"💧 **VOLUME D'AIR (U0) :** {U0_L:.2f} Litres")
         st.warning(f"🌊 **VOLUME D'EAU À ABSORBER :** {Ve_L:.2f} Litres")
         st.error(f"🚀 **VOLUME RÉSERVOIR :** {U0_L:.2f} L (~ **{V_m3} m³**)")
+
+    # 4. Affichage de l'Abaque HTML
+    st.write("---")
+    st.subheader("📈 ABAQUE DE VIBERT INTERACTIF")
+    
+    try:
+        with open("vibert_abaque.html", "r", encoding="utf-8") as f:
+            html_content = f.read()
+        components.html(html_content, height=600, scrolling=True)
+    except FileNotFoundError:
+        st.error("Le fichier `vibert_abaque.html` est introuvable. Assure-toi qu'il est présent sur GitHub.")
 
 if __name__ == "__main__":
     dimensionner_anti_belier()
