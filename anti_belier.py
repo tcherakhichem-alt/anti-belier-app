@@ -1,4 +1,5 @@
 import math
+import streamlit as st
 
 def resolver_abaque_u0_ls(h0_Z0, Zmax_Z0):
     log_h = math.log10(h0_Z0)
@@ -7,19 +8,27 @@ def resolver_abaque_u0_ls(h0_Z0, Zmax_Z0):
     return 10 ** log_u
 
 def dimensionner_anti_belier():
-    print("===============================================================")
-    print(" PROGRAMME DE DIMENSIONNEMENT DU RÉSERVOIR ANTI-BÉLIER ")
-    print("===============================================================\n")
+    st.set_page_config(page_title="Dimensionnement Anti-Bélier", layout="wide")
     
-    # 1. Inputs de l'utilisateur
-    D_int_mm = float(input("1. Diamètre intérieur D (mm) [ex: 327.4] : ") or 327.4)
-    DN_mm = float(input("2. Diamètre nominal DN (mm) [ex: 800] : ") or 800.0)
-    L = float(input("3. Longueur de refoulement L (m) [ex: 860] : ") or 860.0)
-    Hg = float(input("4. Hauteur Géométrique Hg (mCE) [ex: 120] : ") or 120.0)
-    Q_m3h = float(input("5. Débit Q (m3/h) [ex: 454] : ") or 454.0)
-    PN_bar = float(input("6. Pression Nominale PN (Bar) [ex: 16] : ") or 16.0)
+    st.title("⚡ PROGRAMME DE DIMENSIONNEMENT DU RÉSERVOIR ANTI-BÉLIER")
+    st.write("---")
     
-    E_conduite = float(input("7. Module d'élasticité E de la conduite (Pa) [ex: 1.2e9 pour PEHD] : ") or 1.2e9)
+    # 1. Inputs de l'utilisateur via l'interface Streamlit
+    st.subheader("1. Paramètres d'entrée")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        D_int_mm = st.number_input("1. Diamètre intérieur D (mm)", value=327.4, step=1.0)
+        DN_mm = st.number_input("2. Diamètre nominal DN (mm)", value=800.0, step=1.0)
+        L = st.number_input("3. Longueur de refoulement L (m)", value=860.0, step=10.0)
+        Hg = st.number_input("4. Hauteur Géométrique Hg (mCE)", value=120.0, step=1.0)
+        
+    with col2:
+        Q_m3h = st.number_input("5. Débit Q (m3/h)", value=454.0, step=10.0)
+        PN_bar = st.number_input("6. Pression Nominale PN (Bar)", value=16.0, step=1.0)
+        E_conduite = st.number_input("7. Module d'élasticité E (Pa) [ex: 1.2e9 pour PEHD]", value=1.2e9, format="%e")
+
     epsilon_eau = 2.05e9
     rho = 1000.0
     g = 9.81
@@ -54,21 +63,25 @@ def dimensionner_anti_belier():
     V_m3 = math.ceil(U0_L / 1000.0)
     
     # 3. Affichage des résultats
-    print("\n" + "="*50)
-    print(" RÉSULTATS DU DIMENSIONNEMENT ")
-    print("="*50)
-    print(f"• Célérité des ondes C       : {C} m/s")
-    print(f"• Vitesse d'écoulement U     : {U:.2f} m/s")
-    print(f"• Surpression (Coup de Bélier): {B:.2f} mCE ({delta_P_bar:.2f} Bar)")
-    print(f"• Pression Max (ΔP+)         : {delta_P_plus:.2f} mCE")
-    print(f"• Rapport h0 / Z0            : {h0_Z0:.6f}")
-    print(f"• Rapport Zmax / Z0          : {Zmax_Z0:.4f}")
-    print(f"• Valeur de l'Abaque U0/(L.S): {U0_LS:.6f}")
-    print("-" * 50)
-    print(f"   VOLUME D'AIR (U0)        : {U0_L:.2f} Litres")
-    print(f"   VOLUME D'EAU À ABSORBER  : {Ve_L:.2f} Litres")
-    print(f"   >>> VOLUME RÉSERVOIR     : {U0_L:.2f} L  (~ {V_m3} m³)")
-    print("="*50)
+    st.write("---")
+    st.subheader("📊 RÉSULTATS DU DIMENSIONNEMENT")
+    
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Célérité des ondes (C)", f"{C} m/s")
+    m2.metric("Vitesse d'écoulement (U)", f"{U:.2f} m/s")
+    m3.metric("Surpression (Coup de Bélier)", f"{B:.2f} mCE", f"{delta_P_bar:.2f} Bar")
+
+    col_r1, col_r2 = st.columns(2)
+    with col_r1:
+        st.info(f"**Pression Max (ΔP+) :** {delta_P_plus:.2f} mCE")
+        st.write(f"• **Rapport h0 / Z0 :** `{h0_Z0:.6f}`")
+        st.write(f"• **Rapport Zmax / Z0 :** `{Zmax_Z0:.4f}`")
+        st.write(f"• **Valeur Abaque U0/(L.S) :** `{U0_LS:.6f}`")
+
+    with col_r2:
+        st.success(f"💧 **VOLUME D'AIR (U0) :** {U0_L:.2f} Litres")
+        st.warning(f"🌊 **VOLUME D'EAU À ABSORBER :** {Ve_L:.2f} Litres")
+        st.error(f"🚀 **VOLUME RÉSERVOIR :** {U0_L:.2f} L (~ **{V_m3} m³**)")
 
 if __name__ == "__main__":
     dimensionner_anti_belier()
