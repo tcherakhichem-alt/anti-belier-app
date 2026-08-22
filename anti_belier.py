@@ -2,12 +2,6 @@ import math
 import streamlit as st
 import streamlit.components.v1 as components
 
-def resolver_abaque_u0_ls(h0_Z0, Zmax_Z0):
-    log_h = math.log10(h0_Z0)
-    val = (Zmax_Z0 - 1.10) / 1.1667
-    log_u = (0.30 - 0.12 * (log_h + 3.5) - val) / 0.25 - 2.5
-    return 10 ** log_u
-
 def dimensionner_anti_belier():
     st.set_page_config(page_title="Dimensionnement Anti-Bélier", layout="wide")
     
@@ -55,29 +49,24 @@ def dimensionner_anti_belier():
     Zmax_Z0 = Zmaxi / Z0
     h0_Z0 = (U ** 2) / (2.0 * g * Z0)
     
+    # 3. Saisie Manuelle de la valeur de l'Abaque
     st.write("---")
-    st.subheader("2. Mode de détermination de la valeur U0/(L.S)")
+    st.subheader("2. Lecture de l'Abaque")
     
-    # Choix entre Calcul Automatique et Saisie Manuelle
-    tab1, tab2 = st.tabs(["🤖 Calcul Automatique (Abaque)", "✍️ Saisie Manuelle"])
+    col_ab1, col_ab2 = st.columns(2)
+    with col_ab1:
+        st.info(f"• **Rapport h0 / Z0 :** `{h0_Z0:.6f}`\n\n• **Rapport Zmax / Z0 :** `{Zmax_Z0:.4f}`")
     
-    with tab1:
-        U0_LS = resolver_abaque_u0_ls(h0_Z0, Zmax_Z0)
-        st.info(f"**Valeur calculée automatiquement via l'abaque :** `{U0_LS:.6f}`")
-        
-    with tab2:
-        U0_LS_manual = st.number_input("Entrez manuellement la valeur U0/(L.S) lue sur l'abaque :", value=float(f"{resolver_abaque_u0_ls(h0_Z0, Zmax_Z0):.6f}"), format="%.6f")
-        mode_manuel = st.checkbox("Utiliser la valeur manuelle pour les résultats final", value=False)
-        if mode_manuel:
-            U0_LS = U0_LS_manual
+    with col_ab2:
+        U0_LS = st.number_input("✍️ Entrez la valeur U0/(L.S) lue sur l'abaque :", value=0.015000, format="%.6f", step=0.000100)
 
-    # Calcul des volumes selon U0_LS sélectionné
+    # Calcul des volumes selon la valeur saisie
     S = math.pi * (D ** 2) / 4.0
     U0_L = 1000.0 * U0_LS * L * S
     Ve_L = U0_L * (Z0 / Zmaxi)
     V_m3 = math.ceil(U0_L / 1000.0)
     
-    # 3. Affichage des résultats
+    # 4. Affichage des résultats
     st.write("---")
     st.subheader("📊 RÉSULTATS DU DIMENSIONNEMENT")
     
@@ -91,14 +80,14 @@ def dimensionner_anti_belier():
         st.info(f"**Pression Max (ΔP+) :** {delta_P_plus:.2f} mCE")
         st.write(f"• **Rapport h0 / Z0 :** `{h0_Z0:.6f}`")
         st.write(f"• **Rapport Zmax / Z0 :** `{Zmax_Z0:.4f}`")
-        st.write(f"• **Valeur U0/(L.S) retenue :** `{U0_LS:.6f}`")
+        st.write(f"• **Valeur U0/(L.S) appliquée :** `{U0_LS:.6f}`")
 
     with col_r2:
         st.success(f"💧 **VOLUME D'AIR (U0) :** {U0_L:.2f} Litres")
         st.warning(f"🌊 **VOLUME D'EAU À ABSORBER :** {Ve_L:.2f} Litres")
         st.error(f"🚀 **VOLUME RÉSERVOIR :** {U0_L:.2f} L (~ **{V_m3} m³**)")
 
-    # 4. Affichage de l'Abaque HTML
+    # 5. Affichage de l'Abaque HTML
     st.write("---")
     st.subheader("📈 ABAQUE DE VIBERT INTERACTIF")
     
